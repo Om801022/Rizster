@@ -19,5 +19,12 @@ services:
     ports:
       - "5000:5000"
 
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
 volumes:
   db-data:

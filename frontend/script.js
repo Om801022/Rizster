@@ -45,20 +45,36 @@ async function login() {
 }
 
 async function createPost() {
-    await fetch(`${API}/api/posts/`, {
+
+    const storedToken = localStorage.getItem("token");
+
+    if (!storedToken) {
+        alert("Please login first");
+        return;
+    }
+
+    const res = await fetch(`${API}/api/posts/`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            "Authorization": `Bearer ${storedToken}`
         },
         body: JSON.stringify({
             content: postContent.value
         })
     });
 
+    if (!res.ok) {
+        const err = await res.text();
+        console.log(err);
+        alert("Post failed");
+        return;
+    }
+
     postContent.value = "";
     loadPosts();
 }
+
 
 async function loadPosts() {
     const res = await fetch(`${API}/api/posts/`);
@@ -69,10 +85,99 @@ async function loadPosts() {
     posts.forEach(p => {
         const div = document.createElement("div");
         div.className = "card p-3 mb-3 shadow-sm";
-        div.innerHTML = `<p>${p.content}</p>`;
+
+        // Render comments
+        let commentsHTML = "";
+        p.comments.forEach(c => {
+            commentsHTML += `
+                <div class="ms-3 mt-2">
+                    <strong>@${c.username}</strong>: ${c.content}
+                </div>
+            `;
+        });
+
+        div.innerHTML = `
+            <h6>@${p.username}</h6>
+            <p>${p.content}</p>
+
+            <div class="mb-2">
+                <button class="btn btn-sm btn-outline-danger me-2"
+                    onclick="toggleLike(${p.id})">
+                    <i class="bi bi-heart-fill"></i> ${p.likes}
+                </button>
+                <span class="text-muted"><i class="bi bi-chat"></i> ${p.comments_count}</span>
+            </div>
+
+            ${commentsHTML}
+
+            <div class="mt-3">
+                <input type="text"
+                    id="comment-input-${p.id}"
+                    class="form-control mb-2"
+                    placeholder="Write a comment...">
+
+                <button class="btn btn-sm btn-primary"
+                    onclick="submitComment(${p.id})">
+                    Submit
+                </button>
+            </div>
+        `;
+
         feed.appendChild(div);
     });
 }
+
+
+
+async function toggleLike(postId) {
+
+    const storedToken = localStorage.getItem("token");
+
+    if (!storedToken) {
+        alert("Login required");
+        return;
+    }
+
+    await fetch(`${API}/api/posts/${postId}/like`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${storedToken}`
+        }
+    });
+
+    loadPosts();
+}
+
+
+async function submitComment(postId) {
+    const storedToken = localStorage.getItem("token");
+
+    if (!storedToken) {
+        alert("Login required");
+        return;
+    }
+
+    const input = document.getElementById(`comment-input-${postId}`);
+    const content = input.value;
+
+    if (!content.trim()) {
+        alert("Comment cannot be empty");
+        return;
+    }
+
+    await fetch(`${API}/api/posts/${postId}/comment`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${storedToken}`
+        },
+        body: JSON.stringify({ content })
+    });
+
+    loadPosts();
+}
+
+
 
 function showApp() {
     document.getElementById("auth-section").style.display = "none";
