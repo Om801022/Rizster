@@ -86,16 +86,6 @@ async function loadPosts() {
         const div = document.createElement("div");
         div.className = "card p-3 mb-3 shadow-sm";
 
-        // Render comments
-        let commentsHTML = "";
-        p.comments.forEach(c => {
-            commentsHTML += `
-                <div class="ms-3 mt-2">
-                    <strong>@${c.username}</strong>: ${c.content}
-                </div>
-            `;
-        });
-
         div.innerHTML = `
             <h6>@${p.username}</h6>
             <p>${p.content}</p>
@@ -105,10 +95,13 @@ async function loadPosts() {
                     onclick="toggleLike(${p.id})">
                     <i class="bi bi-heart-fill"></i> ${p.likes}
                 </button>
-                <span class="text-muted"><i class="bi bi-chat"></i> ${p.comments_count}</span>
-            </div>
 
-            ${commentsHTML}
+                <button class="btn btn-sm btn-outline-secondary"
+                    onclick="toggleComments(${p.id})">
+                    <i class="bi bi-chat"></i> ${p.comments_count}
+                </button>
+
+            <div id="comments-${p.id}" class="mt-2" style="display:none;"></div>
 
             <div class="mt-3">
                 <input type="text"
@@ -138,12 +131,17 @@ async function toggleLike(postId) {
         return;
     }
 
-    await fetch(`${API}/api/posts/${postId}/like`, {
+    const res = await fetch(`${API}/api/posts/${postId}/like`, {
         method: "POST",
         headers: {
             "Authorization": `Bearer ${storedToken}`
         }
     });
+
+    if (!res.ok) {
+        alert("Failed to like post");
+        return;
+    }
 
     loadPosts();
 }
@@ -165,7 +163,7 @@ async function submitComment(postId) {
         return;
     }
 
-    await fetch(`${API}/api/posts/${postId}/comment`, {
+    const res = await fetch(`${API}/api/posts/${postId}/comment`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -174,12 +172,60 @@ async function submitComment(postId) {
         body: JSON.stringify({ content })
     });
 
+    if (!res.ok) {
+        alert("Failed to post comment");
+        return;
+    }
+
     loadPosts();
 }
 
+async function toggleComments(postId) {
+    const container = document.getElementById(`comments-${postId}`);
+
+    if (container.style.display === "none") {
+        container.style.display = "block";
+        loadComments(postId);
+    } else {
+        container.style.display = "none";
+    }
+}
+
+
+async function loadComments(postId) {
+    const res = await fetch(`${API}/api/posts/`);
+    const posts = await res.json();
+
+    const post = posts.find(p => p.id === postId);
+    const container = document.getElementById(`comments-${postId}`);
+
+    if (!post || !post.comments) {
+        container.innerHTML = "<p>No comments</p>";
+        return;
+    }
+
+    let commentsHTML = "";
+
+    post.comments.forEach(c => {
+        commentsHTML += `
+            <div class="ms-3 mt-2">
+                <strong>@${c.username}</strong>: ${c.content}
+            </div>
+        `;
+    });
+
+    container.innerHTML = commentsHTML;
+}
 
 
 function showApp() {
     document.getElementById("auth-section").style.display = "none";
     document.getElementById("post-section").style.display = "block";
+}
+
+function logout() {
+    localStorage.removeItem("token");
+    token = null;
+    document.getElementById("auth-section").style.display = "block";
+    document.getElementById("post-section").style.display = "none";
 }

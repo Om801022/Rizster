@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from ..models import Post
 from ..models import Like
 from ..models import Comment
+from ..models import SavedPost
 
 
 posts_bp = Blueprint("posts", __name__)
@@ -93,4 +94,23 @@ def get_posts():
 
     return jsonify(result)
 
+@posts_bp.route("/<int:post_id>/save", methods=["POST"])
+@jwt_required()
+def toggle_save(post_id):
+    user_id = int(get_jwt_identity())
+
+    existing = SavedPost.query.filter_by(
+        user_id=user_id,
+        post_id=post_id
+    ).first()
+
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return {"message": "Unsaved"}, 200
+    else:
+        save = SavedPost(user_id=user_id, post_id=post_id)
+        db.session.add(save)
+        db.session.commit()
+        return {"message": "Saved"}, 201
 
